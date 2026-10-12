@@ -38,10 +38,26 @@ export {
   type ProfilePluginLocation, type ProfilePluginDependency, type ProfilePluginInventory, type ProfilePluginReconciliation,
 } from './profile-plugins.ts'
 
+/**
+ * Launch-time work that must finish before {@link boot} settles the tree.
+ * A plugin registers work whose result an application reads on its first
+ * operation, so no application starts from configuration still being imported.
+ */
+export interface BootTasks {
+  /**
+   * Register work boot waits for.
+   * @param work - promise whose settlement precedes the startup audit; reporting
+   * its failure belongs to the caller that registered it.
+   */
+  add(work: Promise<void>): void
+}
+
 declare module '@deepseek-ai/cordis' {
   interface Context {
     /** Harness-home path resolver available to Loader `!!js` config expressions. */
     dshHomePath?: typeof dshHomePath
+    /** Launch-time work boot waits for before its startup audit; provided by {@link boot}. */
+    bootTasks?: BootTasks
   }
 
   interface Events {
@@ -941,6 +957,23 @@ export async function auditStartupEntries(
   if (failures.length > 0) warn(activationDiagnostic(binName, failures))
 }
 
+/** Collect launch-time work boot waits for, including work registered while earlier work settles. */
+function createBootTasks(): { service: BootTasks; settle(): Promise<void> } {
+  const pending = new Set<Promise<void>>()
+  return {
+    service: {
+      add(work) {
+        pending.add(work)
+        // Both outcomes stop tracking the work; boot never fails for it.
+        void work.then(() => { pending.delete(work) }, () => { pending.delete(work) })
+      },
+    },
+    async settle(): Promise<void> {
+      while (pending.size > 0) await Promise.allSettled([...pending])
+    },
+  }
+}
+
 /**
  * Boot the Loader against `absoluteConfigPath` and return only after the whole
  * tree settles. Relative entry names resolve against the config directory;
@@ -996,6 +1029,8 @@ export async function boot(
   try {
     ctx.baseUrl = pathToFileURL(dirname(absoluteConfigPath)).href + '/'
     ctx.provide('dshHomePath', dshHomePath)
+    const bootTasks = createBootTasks()
+    ctx.provide('bootTasks', bootTasks.service)
     // Fiber.update() discards the restart promise. Observe it before the
     // waterfall returns; activation audits still report the failed fiber.
     ctx.on('internal/update', (_config, _noSave, next: () => unknown) => {
@@ -1012,6 +1047,7 @@ export async function boot(
     // as asked. Re-check after settlement before auditing the tree.
     await ctx.get('loader')?.await()
     if (ctx.get('loader') === undefined) return ctx
+    await bootTasks.settle()
     await auditStartupEntries(ctx, binName)
     return ctx
   } catch (cause) {

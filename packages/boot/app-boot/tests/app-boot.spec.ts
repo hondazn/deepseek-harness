@@ -930,6 +930,46 @@ describe('boot', () => {
     }
   })
 
+  it('returns only after launch-time work registered by a plugin settles', async () => {
+    const dir = tmp()
+    const marker = { reached: false }
+    writeFileSync(join(dir, 'work.mjs'), [
+      'export const name = "work"',
+      'export function apply(ctx) {',
+      '  const work = Promise.withResolvers()',
+      '  ctx.get("bootTasks").add(work.promise)',
+      '  setTimeout(() => { ctx.get("marker").reached = true; work.resolve() }, 20)',
+      '}',
+    ].join('\n'))
+    writeFileSync(join(dir, 'cordis.yml'), '- id: work\n  name: ./work.mjs\n')
+    const ctx = await boot(NAME, join(dir, 'cordis.yml'), undefined, (host) => { host.provide('marker', marker) })
+    try {
+      expect(marker.reached).toBe(true)
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('keeps boot successful when registered launch-time work rejects', async () => {
+    const dir = tmp()
+    const marker = { settled: false }
+    writeFileSync(join(dir, 'failing.mjs'), [
+      'export const name = "failing"',
+      'export function apply(ctx) {',
+      '  const marker = ctx.get("marker")',
+      '  const work = Promise.reject(new Error("launch work failed")).finally(() => { marker.settled = true })',
+      '  ctx.get("bootTasks").add(work)',
+      '}',
+    ].join('\n'))
+    writeFileSync(join(dir, 'cordis.yml'), '- id: failing\n  name: ./failing.mjs\n')
+    const ctx = await boot(NAME, join(dir, 'cordis.yml'), undefined, (host) => { host.provide('marker', marker) })
+    try {
+      expect(marker.settled).toBe(true)
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
   it('can resolve bare plugins from the harness when the config project shadows their package name', async () => {
     const dir = tmp()
     const harness = tmp()
