@@ -26,6 +26,11 @@ import { internals } from '../src/runner-internals.ts'
 const originalInternals = { ...internals }
 afterEach(() => { Object.assign(internals, originalInternals) })
 
+/** Provide the launcher-owned readiness signal the one-shot runner starts from. */
+function provideReady(ctx: Context): void {
+  ctx.provide('appReady', { onReady: (listener: () => void) => { listener(); return () => {} } })
+}
+
 interface Script {
   before?(session: Session): void
   afterPrompt(session: Session, message: UserMessage, agent: Agent): Promise<void> | void
@@ -215,6 +220,7 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
       const exited = new Promise<number>((resolve) => {
         ctx.provide('appExit', (code: number) => { order.push('exit'); resolve(code) })
       })
+      provideReady(ctx)
       if (options.prelive === true || options.preliveMeta !== undefined) {
         await ctx.agents.create({
           sessionId: brandString<SessionId>(options.sessionId ?? 'session-exact'),
@@ -1107,6 +1113,7 @@ describe('headless runner', () => {
     const exited = new Promise<number>((resolve) => {
       ctx.provide('appExit', resolve)
     })
+    provideReady(ctx)
     ctx.provide('agentDefaultModel', { currentSelection: () => ({ provider: 'p', model: 'm' }) } as never)
     ctx.provide('sessions', { flush: () => Promise.resolve(true) } as never)
     ctx.provide('agents', { create: () => Promise.reject(new Error('factory exploded')) } as never)
@@ -1124,6 +1131,7 @@ describe('headless runner', () => {
     const exited = new Promise<number>((resolve) => {
       ctx.provide('appExit', resolve)
     })
+    provideReady(ctx)
     ctx.provide('agentDefaultModel', { currentSelection: () => ({ provider: 'p', model: 'm' }) } as never)
     ctx.provide('sessions', { flush: () => Promise.resolve(true) } as never)
     const rejected = {
@@ -1138,12 +1146,34 @@ describe('headless runner', () => {
     await ctx.fiber.dispose()
   })
 
+  it('starts the one-shot task only after startup is committed', async () => {
+    const ctx = new Context()
+    let created = false
+    internals.stdout = { write: () => true }
+    internals.stderr = { write: () => true }
+    ctx.provide('appExit', () => {})
+    let commit = (): void => {}
+    ctx.provide('appReady', { onReady: (listener: () => void) => { commit = listener; return () => {} } })
+    ctx.provide('loader', { await: () => Promise.resolve() } as never)
+    ctx.provide('agentDefaultModel', { currentSelection: () => ({ provider: 'p', model: 'm' }) } as never)
+    ctx.provide('sessions', { flush: () => Promise.resolve(true) } as never)
+    ctx.provide('agents', { create: () => { created = true; return Promise.reject(new Error('factory exploded')) } } as never)
+    apply(ctx, { task: 't' })
+    await new Promise(resolve => setTimeout(resolve, 10))
+    expect(created).toBe(false)
+    commit()
+    await new Promise(resolve => setTimeout(resolve, 10))
+    expect(created).toBe(true)
+    await ctx.fiber.dispose()
+  })
+
   it('abandons a run when the tree is disposed during Loader settlement', async () => {
     const ctx = new Context()
     let exited = false
     internals.stdout = { write: () => true }
     internals.stderr = { write: () => true }
     ctx.provide('appExit', () => { exited = true })
+    provideReady(ctx)
     const services = ctx.plugin((child: Context) => {
       child.provide('agentDefaultModel', { currentSelection: () => ({ provider: 'p', model: 'm' }) } as never)
       child.provide('sessions', {} as never)
@@ -1161,9 +1191,9 @@ describe('headless runner', () => {
     await ctx.fiber.dispose()
   })
 
-  it('fails loud without the launcher-provided exit request', () => {
+  it('fails loud without the launcher-provided exit request and readiness signal', () => {
     const ctx = new Context()
-    expect(() => { apply(ctx, { task: 't' }) }).toThrow('must provide ctx.appExit')
+    expect(() => { apply(ctx, { task: 't' }) }).toThrow('must provide ctx.appExit and ctx.appReady')
   })
 
   it('validates config: the task and run options are optional', () => {

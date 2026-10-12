@@ -409,12 +409,17 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
  * @param config - validated task and run options.
  */
 export function apply(ctx: Context, config: Config): void {
-  // Read through the global service store, not the property proxy: appExit is
-  // an optional host value, never an injected dependency.
+  // Read through the global service store, not the property proxy: appExit and
+  // appReady are optional host values, never injected dependencies.
   const exit = ctx.get('appExit')
-  if (exit === undefined) {
-    throw new Error('headless-runner: the launcher must provide ctx.appExit before the tree mounts')
+  const ready = ctx.get('appReady')
+  if (exit === undefined || ready === undefined) {
+    throw new Error('headless-runner: the launcher must provide ctx.appExit and ctx.appReady before the tree mounts')
   }
   const io: HeadlessIo = { stdout: internals.stdout, stderr: internals.stderr, exit }
-  void run(ctx, config, io).catch((error: unknown) => { fail(io, error, config.json === true) })
+  // The task's first operation reads configuration that launch-time work may
+  // still be importing, so the run starts once startup is committed.
+  ctx.effect(() => ready.onReady(() => {
+    void run(ctx, config, io).catch((error: unknown) => { fail(io, error, config.json === true) })
+  }))
 }
