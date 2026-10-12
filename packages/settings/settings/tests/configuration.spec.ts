@@ -339,6 +339,54 @@ it('imports the removed settings.yaml into the profile once and keeps rejected s
   expect(blocked.agentDefaultModel.currentSelection().model).toBe('legacy')
 })
 
+it('imports a launcher-supplied settings document at every boot without consuming it', async () => {
+  const { ctx, home, profile, start } = await fixture()
+  await ctx.fiber.dispose()
+  const document = join(home, 'launcher-settings.yaml')
+  writeFileSync(document, 'default-model:\n  model: launched\nfirst:\n  count: 9\nmissing:\n  count: 1\n')
+  writeFileSync(profile.patchPath, JSON.stringify([{ id: 'settings', config: { path: document } }]))
+  const restored = await start()
+  await vi.waitFor(() => { expect(restored.agentDefaultModel.currentSelection().model).toBe('launched') })
+  expect(parse(readFileSync(profile.patchPath, 'utf8'))).toContainEqual({ id: 'default-model', name: 'cordis:model', config: { provider: 'test', model: 'launched' } })
+  await vi.waitFor(() => { expect(restored.settings.describe({ redactSecrets: true }).find(row => row.ns === 'first')!.value).toEqual({ count: 9, list: [] }) })
+  expect(existsSync(document)).toBe(true)
+  await restored.fiber.dispose()
+  writeFileSync(document, 'default-model:\n  model: relaunched\n')
+  const again = await start()
+  await vi.waitFor(() => { expect(again.agentDefaultModel.currentSelection().model).toBe('relaunched') })
+})
+
+it('settles a launcher-supplied settings document before boot returns', async () => {
+  const { ctx, home, profile, start } = await fixture({ hmr: false })
+  await ctx.fiber.dispose()
+  const document = join(home, 'launcher-settings.yaml')
+  writeFileSync(document, 'default-model:\n  model: launched\n')
+  writeFileSync(profile.patchPath, JSON.stringify([{ id: 'settings', config: { path: document } }]))
+  const restored = await start()
+  expect(restored.agentDefaultModel.currentSelection()).toEqual({ provider: 'test', model: 'launched' })
+})
+
+it('refuses to activate Settings when the configured settings document is absent', async () => {
+  const { ctx, home, profile, start } = await fixture()
+  await ctx.fiber.dispose()
+  writeFileSync(profile.patchPath, JSON.stringify([{ id: 'settings', config: { path: join(home, 'absent.yaml') } }]))
+  const blocked = await start()
+  expect(blocked.get('settings')).toBeUndefined()
+})
+
+it('replaces the entries a launcher document names instead of merging over them', async () => {
+  const { ctx, home, profile, start } = await fixture()
+  await ctx.fiber.dispose()
+  const document = join(home, 'launcher-settings.yaml')
+  writeFileSync(document, 'default-model:\n  model: launched\n')
+  writeFileSync(profile.patchPath, JSON.stringify([
+    { id: 'settings', config: { path: document } },
+    { id: 'default-model', config: { provider: 'test', model: 'original', reasoningEffort: 'max' } },
+  ]))
+  const restored = await start()
+  await vi.waitFor(() => { expect(restored.agentDefaultModel.currentSelection()).toEqual({ provider: 'test', model: 'launched' }) })
+})
+
 it('describes an entry whose required field only the profile supplies, and reports a failed refresh instead of crashing', async () => {
   const { ctx, profile, start } = await fixture({
     schema: z.object({ ordinary: z.string(), required: z.string().required(), count: z.number().default(2).volatile() }),

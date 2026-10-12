@@ -18,6 +18,8 @@ Cordis config patch 替换完整 entry config。编辑会保留普通字段、�
 
 被移除的 `$DSH_HOME/settings.yaml` 会在 Settings 启动后、Loader 完成所有条目加载时一次性导入当前 profile：section id 即 entry id，其中 `ui-developer-tools` → `ui-settings`、`ui-onboarding` → `ui-settings-general`、`shell` → 当前平台的 shell 执行器条目。文件在第一次写入前改名为 `settings.yaml.imported`，因此导入不会重复；被拒绝的 section 会记录日志并保留在改名后的文件中。
 
+启动该 profile 的启动器可以改在 Settings 自身的 `path` Config 中指定它提供的文档。该文档在每次启动时导入而非仅导入一次，且每个 section 会替换其条目的即时字段而不是合并，因此启动器的值既会覆盖自上次启动以来的表单编辑，也会覆盖 profile 为它所替换的模型设置的值。文档留在启动器放置的位置，且该导入是注册在 `ctx.bootTasks` 上的启动期工作，因此 boot 只在应用起始配置就绪后才报告树已就绪。配置的路径不存在时，Settings 条目在加载阶段失败。
+
 ## 考虑过的替代方案
 
 保留 settings 作为配置适配器背后的第二份存储仍需要协调两份持久化文档，并决定并发修改或重启后哪份优先，因此不采用。删除的全局 settings 文档曾提供跨 profile 偏好；本设计明确将表单值持久化到各 profile。若重新引入共享偏好，必须采用显式共享 Cordis 层并明确写入目标。

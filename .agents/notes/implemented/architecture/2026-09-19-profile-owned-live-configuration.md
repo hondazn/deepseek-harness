@@ -18,6 +18,8 @@ Cordis config patches replace complete entry configs. An edit preserves ordinary
 
 The removed `$DSH_HOME/settings.yaml` is imported once into the active profile when the Loader has settled every entry after Settings starts: section ids are entry ids, with `ui-developer-tools` → `ui-settings`, `ui-onboarding` → `ui-settings-general`, and `shell` → the platform's shell executor entry. The file is renamed to `settings.yaml.imported` before the first write, so the import never repeats; a rejected section is logged and stays in the renamed file.
 
+A launcher that boots the profile may name the document it supplies in Settings' own `path` Config. That document is imported at every boot rather than once, and each section replaces its entry's live fields instead of merging into them, so the launcher's values win both over a form edit made since the previous boot and over a value the profile set for the model the launcher replaces. The document stays where the launcher put it, and the import is launch-time work on `ctx.bootTasks`, so boot settles the tree only once the configuration an application starts from is in place. A configured path that does not exist fails the Settings entry at load.
+
 ## Alternatives considered
 
 The rejected alternative is retaining settings as a second store behind a configuration adapter: that still requires reconciling two durable documents and deciding which wins after concurrent edits or restart. The removed global settings document offered cross-profile preferences; this design deliberately makes persisted form values profile-specific. Reintroducing shared preferences requires an explicit shared Cordis layer and a defined write destination.

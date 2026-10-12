@@ -2978,6 +2978,23 @@ export interface Config extends SessionTitleLlmConfig {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-title-first-prompt-llm -->
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-settings -->
+<a id="deepseek-aidsh-settings"></a>
+
+## `@deepseek-ai/dsh-settings`
+
+- `inject`: `configEditor` · `profileContext`
+- `source`: [`packages/settings/settings/src/index.ts:223`](../packages/settings/settings/src/index.ts)
+
+```ts config-catalog
+/** Settings document supplied by the launcher that boots this profile. */
+export interface Config {
+  /** Absolute path of a settings document whose sections are imported into the active profile at every boot. */
+  path?: string
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-settings -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-shell-env -->
 <a id="deepseek-aidsh-shell-env"></a>
 
@@ -4585,7 +4602,6 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@deepseek-ai/dsh-session-projection` | — | [`packages/session/session-projection/src/index.ts`](../packages/session/session-projection/src/index.ts) |
 | `@deepseek-ai/dsh-session-stats` | `sessionProjections` | [`packages/session/session-stats/src/index.ts`](../packages/session/session-stats/src/index.ts) |
 | `@deepseek-ai/dsh-session-turn-outline` | `sessionProjections` | [`packages/session/session-turn-outline/src/index.ts`](../packages/session/session-turn-outline/src/index.ts) |
-| `@deepseek-ai/dsh-settings` | `configEditor` · `profileContext` | [`packages/settings/settings/src/index.ts`](../packages/settings/settings/src/index.ts) |
 | `@deepseek-ai/dsh-skill-badge` | `skills` | [`packages/experimental/skill-badge/src/index.ts`](../packages/experimental/skill-badge/src/index.ts) |
 | `@deepseek-ai/dsh-storage` | — | [`packages/storage/storage/src/index.ts`](../packages/storage/storage/src/index.ts) |
 | `@deepseek-ai/dsh-subprocess-local` | — | [`packages/subprocess/subprocess-local/src/index.ts`](../packages/subprocess/subprocess-local/src/index.ts) |

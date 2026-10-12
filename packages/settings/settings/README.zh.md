@@ -30,9 +30,18 @@ kind: "package-reference"
   name: '@deepseek-ai/dsh-settings'
 ```
 
-此插件没有配置字段。表单只展示活动且可唯一定位的 profile 条目中的 volatile 字段。普通配置仍通过 Cordis 配置文件编辑。
+其唯一的配置字段是 `path`，即启动器为本 profile 提供的设置文档。表单只展示活动且可唯一定位的 profile 条目中的 volatile 字段。普通配置仍通过 Cordis 配置文件编辑。
+
+```yaml
+- id: settings
+  name: '@deepseek-ai/dsh-settings'
+  config:
+    path: /path/to/launcher-settings.yaml
+```
 
 Settings 启动后、Loader 完成所有条目的加载时，早期版本留在 harness home 中的 `settings.yaml` 会被导入一次：每个 section 写入同名条目（`ui-developer-tools` → `ui-settings`、`ui-onboarding` → `ui-settings-general`、`shell` → 当前平台的 shell 执行器条目），文件在第一次写入前改名为 `settings.yaml.imported`，被当前组合拒绝的 section 会记录日志并只保留在改名后的文件中。
+
+命名了 `path` 的启动器，其文档会在每次启动时导入当前 profile。每个 section 会替换该条目的即时字段而非合并，因此自上次启动以来的表单编辑和 profile 为该条目设置的值都不会保留。文档保留在启动器放置的位置：就地读取，从不改名。boot 在导入结束后才报告树已就绪，因此应用的首次操作读取到的已是导入后的值。配置的 `path` 不存在时，Settings 在加载阶段失败，而不是带着本应由该文档提供的值启动。
 
 重置恢复 profile 覆盖层以下的值，包括 schema 默认值。Home patch 和命令行 overlay 优先级更高；表单写入若会被它们覆盖，则被拒绝。
 

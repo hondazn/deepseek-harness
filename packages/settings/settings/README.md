@@ -30,9 +30,18 @@ Mount this plugin with Loader and [config-editor](../../boot/config-editor/READM
   name: '@deepseek-ai/dsh-settings'
 ```
 
-This plugin has no configuration fields. Forms expose only volatile fields from active, uniquely addressed profile entries. Ordinary configuration remains editable through Cordis configuration files.
+Its only configuration field is `path`, the settings document a launcher supplies for this profile. Forms expose only volatile fields from active, uniquely addressed profile entries. Ordinary configuration remains editable through Cordis configuration files.
+
+```yaml
+- id: settings
+  name: '@deepseek-ai/dsh-settings'
+  config:
+    path: /path/to/launcher-settings.yaml
+```
 
 Once the Loader has settled every entry after Settings starts, a `settings.yaml` left in the harness home by earlier releases is imported once: each section is written into the entry of the same id (`ui-developer-tools` → `ui-settings`, `ui-onboarding` → `ui-settings-general`, `shell` → the platform's shell executor entry), the file is renamed to `settings.yaml.imported` before the first write, and a section the running composition rejects is logged and stays only in the renamed file.
+
+A launcher that names `path` has that document imported into the active profile at every boot. Each section replaces that entry's live fields rather than merging into them, so neither a form edit made since the previous boot nor a value the profile set for the entry survives the import. The document belongs to the launcher: it is read in place and never renamed. Boot reports the tree only after the import settles, so an application's first operation already reads the imported values. A configured `path` that does not exist fails Settings at load rather than booting with the values the document would have supplied.
 
 Reset restores the value beneath the profile override, including schema defaults. Home patches and command-line overlays take precedence; a form write that they would override is refused.
 

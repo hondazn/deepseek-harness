@@ -4,7 +4,7 @@ import { readFile, rename } from 'node:fs/promises'
 import { join } from 'node:path'
 import { parse } from 'yaml'
 import { Context, FiberState, Service, resolveConfig, type Fiber } from '@deepseek-ai/cordis'
-import type z from '@deepseek-ai/schemastery'
+import z from '@deepseek-ai/schemastery'
 import { interpolate, type Entry } from '@deepseek-ai/cordis-plugin-loader'
 import type {} from '@deepseek-ai/dsh-config-editor'
 import type {} from '@deepseek-ai/dsh-app-boot'
@@ -219,20 +219,48 @@ function inheritedConfig(runtime: Fiber['runtime'] & object, inherited: unknown)
   }
 }
 
+/** Settings document supplied by the launcher that boots this profile. */
+export interface Config {
+  /** Absolute path of a settings document whose sections are imported into the active profile at every boot. */
+  path?: string
+}
+
 /** Project Config schemas into forms and own optional instance-level UI policy. */
 export class SettingsForms extends Service {
   static inject = ['configEditor', 'profileContext']
+  static Config = z.object({
+    path: z.string(),
+  })
   private revisions = new Map<string, { raw: string | undefined; revision: number; ns: SettingsNamespace; autoGenerate: boolean }>()
   private closed = false
   private scheduled = false
   private readonly presentations = new Map<Fiber, { auto?: boolean }>()
 
-  constructor(private readonly ownerContext: Context) {
+  constructor(private readonly ownerContext: Context, config: Config) {
     super(ownerContext, 'settings')
     const ctx = ownerContext
+    if (config.path !== undefined && !existsSync(config.path)) {
+      throw new Error(`settings: the configured settings document ${config.path} does not exist`)
+    }
     ctx.effect(() => () => { this.closed = true })
     ctx.on('app-boot/config-reload', () => { this.invalidate() })
-    void ctx.root.loader.await().then(() => this.importLegacyDocument()).catch((error: unknown) => { ctx.logger.error(error) })
+    const imported = ctx.root.loader.await().then(async () => {
+      if (config.path !== undefined) await this.importConfiguredDocument(config.path)
+      await this.importLegacyDocument()
+    }).catch((error: unknown) => { ctx.logger.error(error) })
+    // An application reads this configuration on its first operation, so boot waits for it.
+    ctx.get('bootTasks')?.add(imported)
+  }
+
+  /** Import a launcher-supplied settings document into the active profile.
+   * The document belongs to the launcher that named it, so every boot re-reads it in place and the
+   * launcher's values replace a form edit made to the same entries since the previous boot.
+   * @param path - absolute path of the settings document.
+   */
+  private async importConfiguredDocument(path: string): Promise<void> {
+    const sections = parse(await readFile(path, 'utf8')) as Record<string, object> | null
+    await this.importSections(sections, path, (ns, values) => this.replace(ns, values))
+    this.ownerContext.logger.info('settings: imported %s into profile %s', path, this.ownerContext.profileContext.name)
   }
 
   /** Move the sections of the removed `settings.yaml` into the active profile once the Loader has settled every entry.
@@ -244,17 +272,29 @@ export class SettingsForms extends Service {
     if (!existsSync(path)) return
     const imported = `${path}.imported`
     await rename(path, imported)
-    const sections = parse(await readFile(imported, 'utf8')) as Record<string, object> | null
+    await this.importSections(parse(await readFile(imported, 'utf8')) as Record<string, object> | null, imported, (ns, values) => this.update(ns, values))
+    this.ownerContext.logger.info('settings: imported %s into profile %s', imported, profile.name)
+  }
+
+  /** Write every section of a settings document into the profile entry sharing its id.
+   * @param sections - parsed document sections, keyed by profile entry id.
+   * @param source - document the sections came from, named in the log.
+   * @param apply - how one section reaches its entry: a launcher document owns the entries it
+   * names and replaces their live fields, while the removed user document merges into what the
+   * profile already held.
+   */
+  private async importSections(
+    sections: Record<string, object> | null, source: string, apply: (ns: string, values: object) => Promise<void>,
+  ): Promise<void> {
     for (const [section, values] of Object.entries(sections ?? {})) {
       const ns = LEGACY_SECTION_ENTRIES[section] ?? section
       try {
-        await this.update(ns, values)
+        await apply(ns, values)
       } catch (error) {
-        this.ownerContext.logger.warn('settings: section %s of %s was not imported into entry %s', section, imported, ns)
+        this.ownerContext.logger.warn('settings: section %s of %s was not imported into entry %s', section, source, ns)
         this.ownerContext.logger.warn(error)
       }
     }
-    this.ownerContext.logger.info('settings: imported %s into profile %s', imported, profile.name)
   }
 
   /** Register the calling plugin instance's page policy without changing its Config.

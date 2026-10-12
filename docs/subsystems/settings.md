@@ -8,6 +8,8 @@ The [settings service](../../packages/settings/settings/README.md) projects vola
 
 A form namespace is the local id of a uniquely addressed entry in the active profile. Multiple plugin instances have separate forms when their entry ids differ. Ordinary fields are excluded. Descriptors carry resolved values, inherited values, explicit profile overrides, and an optimistic revision.
 
+A launcher may name a settings document in the service's own `path` Config, as `ollama launch dsh` does. Every boot replaces each named entry's live fields in the active profile with that document's section, so neither a form edit nor a value the profile set for a different model survives.
+
 ## Edits
 
 `update` merges submitted fields. `replace` resets live fields to inherited configuration before applying submitted fields. `mutate` addresses individual paths, preserving secrets absent from a client response. Every write validates the complete Config and refuses stale revisions before persistence.
