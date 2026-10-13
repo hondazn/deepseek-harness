@@ -250,12 +250,13 @@ class Hmr extends Service {
   private stashed = new Set<string>()
   private operations: Promise<unknown> = Promise.resolve()
   private readonly executing = new AsyncLocalStorage<boolean>()
-  private applicationReady: Promise<boolean> = Promise.resolve(true)
+  private applicationReady: Promise<boolean> | undefined
   private closing = false
   private readonly configPaths = new Set<string>()
   private readonly manifests = new PackageManifests()
 
   /** Serialize a caller-owned mutation with all automatic reload paths.
+   * Caller-owned mutations may run before application readiness.
    * @param operation Work that must not overlap module or configuration replacement.
    * @returns The operation result after its asynchronous work completes.
    */
@@ -270,9 +271,10 @@ class Hmr extends Service {
   }
 
   private runReload(operation: () => Promise<void>): Promise<void> {
-    return this.runExclusive(async () => {
-      if (await this.applicationReady) await operation()
-    })
+    if (this.applicationReady !== undefined) {
+      return this.applicationReady.then(ready => ready ? this.runExclusive(operation) : undefined)
+    }
+    return this.runExclusive(operation)
   }
 
   /** Watch a configuration path through the same queue as module replacement.
@@ -323,7 +325,7 @@ class Hmr extends Service {
       if (ready === undefined) throw new Error('Profile HMR requires application readiness')
       const started = Promise.withResolvers<boolean>()
       this.applicationReady = started.promise
-      const unsubscribe = ready.onReady(() => { started.resolve(true) })
+      const unsubscribe = ready.onReady(() => { this.applicationReady = undefined; started.resolve(true) })
       yield () => { unsubscribe(); started.resolve(false); return Promise.resolve() }
       const manifestPath = join(profile.dir, 'package.json')
       const patchFiles = [profile.patchPath, join(profile.home, PROFILE_PATCH_FILENAME)]
@@ -380,8 +382,7 @@ class Hmr extends Service {
 
     const changed = new Set<string>()
     const dispatch = this.ctx.debounce(() => {
-      void this.runExclusive(async () => {
-        if (!await this.applicationReady) return
+      void this.runReload(async () => {
         const batch = [...changed]
         changed.clear()
         const includes = new Set<Include>()

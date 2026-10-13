@@ -1273,7 +1273,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'runExclusive<T>(operation: () => Promise<T>): Promise<T>',
-        description: 'Serialize a caller-owned mutation with all automatic reload paths.',
+        description: 'Serialize a caller-owned mutation with all automatic reload paths. Caller-owned mutations may run before application readiness.',
         parameters: [{ name: 'operation', description: 'Work that must not overlap module or configuration replacement.' }],
         returns: 'The operation result after its asynchronous work completes.',
       },

@@ -63,14 +63,10 @@ it('waits for application readiness and applies profile, home and manifest chang
   ] }]
   writeFileSync(f.profile.patchPath, JSON.stringify(patches))
   f.emit(0, f.profile.patchPath)
-  let completed = false
-  const drained = f.drain().then(() => { completed = true })
-  await Promise.resolve(undefined)
-  expect(completed).toBe(false)
+  await f.drain()
   expect(f.ctx.get('profileProbe')).toBe('initial')
   f.commit()
-  await drained
-  expect(f.ctx.get('profileProbe')).toBe('edited')
+  await vi.waitFor(() => { expect(f.ctx.get('profileProbe')).toBe('edited') })
   const homePatch = join(f.home, 'cordis.patch.yml')
   writeFileSync(homePatch, '- id: probe\n  config: { value: home }\n')
   f.emit(1, homePatch)
@@ -84,6 +80,18 @@ it('waits for application readiness and applies profile, home and manifest chang
   f.emit(2, manifest)
   await f.drain()
   expect(f.ctx.get('profileProbe')).toBe('edited')
+})
+
+it('allows startup configuration writes while automatic reloads wait for readiness', async () => {
+  const f = await fixture()
+  f.emit(0, f.profile.patchPath)
+  let completed = false
+  const write = f.ctx.hmr.runExclusive(async () => { completed = true })
+  await vi.waitFor(() => { expect(completed).toBe(true) })
+  await write
+  expect(f.ctx.get('profileProbe')).toBe('initial')
+  f.commit()
+  await f.drain()
 })
 
 it('applies configuration while a CLI operation holds the package writer lock', async () => {
@@ -163,15 +171,17 @@ it('rejects a profile launcher that omits application readiness', async () => {
   await expect(ctx.plugin(Hmr, { root: [], ignored: [], debounce: 0 })).rejects.toThrow('Profile HMR requires application readiness')
 })
 
-it('cancels a queued module notification when startup is interrupted', async () => {
+it('cancels a module notification waiting for readiness when startup is interrupted', async () => {
   const f = await fixture()
-  const queued = Promise.withResolvers<undefined>()
   const hmr = f.ctx.hmr
-  const run = hmr.runExclusive.bind(hmr)
-  vi.spyOn(hmr, 'runExclusive').mockImplementation((operation) => { queued.resolve(undefined); return run(operation) })
+  const queued = vi.spyOn(hmr, 'runExclusive')
+  vi.useFakeTimers()
+  onTestFinished(() => { vi.useRealTimers() })
   watchers.at(-1)!.emit('change', 'pending.mjs')
-  await queued.promise
+  await vi.runOnlyPendingTimersAsync()
+  expect(queued).not.toHaveBeenCalled()
   await f.ctx.fiber.dispose()
+  expect(queued).not.toHaveBeenCalled()
   expect(f.ctx.get('hmr')).toBeUndefined()
 })
 
