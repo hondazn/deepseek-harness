@@ -14,6 +14,15 @@ body {
     -apple-system,
     BlinkMacSystemFont,
     'Segoe UI',
+    /* Japanese families precede the Chinese ones; ui-theme's base.css owns the
+       rationale and the built-in stack this pre-theme fallback mirrors. */
+    'Hiragino Sans',
+    'Hiragino Kaku Gothic ProN',
+    'Yu Gothic UI',
+    'Yu Gothic',
+    Meiryo,
+    'Noto Sans JP',
+    'Noto Sans CJK JP',
     'PingFang SC',
     'Hiragino Sans GB',
     'Microsoft YaHei',

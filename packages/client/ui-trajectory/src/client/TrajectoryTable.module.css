@@ -785,8 +785,9 @@
 
 .toolCallNameTypeface {
   color: var(--dsw-alias-label-primary);
-  font: 400 12px/18px Menlo, Consolas, 'Liberation Mono', 'PingFang SC',
-    'Microsoft YaHei';
+  font: 400 12px/18px Menlo, Consolas, 'Liberation Mono', 'Hiragino Sans',
+    'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Yu Gothic', Meiryo, 'Noto Sans JP',
+    'Noto Sans CJK JP', 'PingFang SC', 'Microsoft YaHei';
 }
 
 .toolCallPayload {
