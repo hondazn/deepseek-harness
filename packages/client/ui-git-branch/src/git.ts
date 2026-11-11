@@ -101,12 +101,12 @@ async function readPosition(git: GitRun): Promise<GitBranchValue> {
     if (NOT_A_CHECKOUT.test(top.stderr)) return { kind: 'none' }
     throw new Error(`git rev-parse failed: ${firstLine(top.stderr)}`)
   }
-  const root = parseName(top.stdout)
+  const root = firstNonEmptyLine(top.stdout)
   if (root === null) throw new Error('git rev-parse printed no directory')
   const head = await git('symbolic-ref', ['symbolic-ref', '--quiet', '--short', 'HEAD'], [0, 1])
-  const branch = head.exitCode === 0 ? parseName(head.stdout) : null
+  const branch = head.exitCode === 0 ? firstNonEmptyLine(head.stdout) : null
   const short = await git('rev-parse', ['rev-parse', '--short', 'HEAD'], [0, 128])
-  return { kind: 'repository', root, branch, commit: short.exitCode === 0 ? parseName(short.stdout) : null }
+  return { kind: 'repository', root, branch, commit: short.exitCode === 0 ? firstNonEmptyLine(short.stdout) : null }
 }
 
 /**
@@ -250,13 +250,12 @@ function confinedPolicy(policy: SandboxExecutionPolicy, mode: ConfinedSandboxMod
   }
 }
 
-/** The first non-empty line, trimmed, for a one-line diagnostic. */
-function firstLine(text: string): string {
-  return text.split(/\r?\n/).map(line => line.trim()).find(line => line.length > 0) ?? 'no diagnostic'
+/** The first non-empty line, trimmed, or null when every line is blank. */
+function firstNonEmptyLine(text: string): string | null {
+  return text.split(/\r?\n/).map(line => line.trim()).find(line => line.length > 0) ?? null
 }
 
-/** The first non-empty line, trimmed, or null. */
-function parseName(text: string): string | null {
-  const line = text.split(/\r?\n/).map(value => value.trim()).find(value => value.length > 0) ?? ''
-  return line === '' ? null : line
+/** The first non-empty line, trimmed, for a one-line diagnostic. */
+function firstLine(text: string): string {
+  return firstNonEmptyLine(text) ?? 'no diagnostic'
 }
