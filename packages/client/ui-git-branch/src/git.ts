@@ -33,6 +33,15 @@ interface GitOutput {
 /** Runs one Git subcommand; output with an exit code outside `allowedExitCodes` throws. */
 type GitRun = (name: string, args: readonly string[], allowedExitCodes: readonly number[]) => Promise<GitOutput>
 
+/** Where and how one repository's commands run: Session policy, directory, limits, and cancellation. */
+interface GitTarget {
+  readonly ctx: Context
+  readonly limits: GitLimits
+  readonly policy: SandboxExecutionPolicy
+  readonly directory: string
+  readonly signal: AbortSignal
+}
+
 /**
  * Clear inherited repository, configuration, and replacement-ref selectors;
  * disable prompts, optional index writes, and lazy fetches of missing objects.
@@ -77,7 +86,16 @@ export async function readBranchPosition(
   directory: string,
   signal: AbortSignal,
 ): Promise<GitBranchValue> {
-  const git = gitIn(ctx, limits, session, directory, signal)
+  return await readPosition(gitIn(ctx, limits, session, directory, signal))
+}
+
+/**
+ * Read the position through an already-bound runner.
+ * @param git - runner bound to one directory and Session policy.
+ * @returns the repository root, branch, and HEAD commit, or `none` outside a checkout.
+ * @throws when Git cannot run, fails unexpectedly, times out, or prints more than the output cap.
+ */
+async function readPosition(git: GitRun): Promise<GitBranchValue> {
   const top = await git('rev-parse', ['rev-parse', '--show-toplevel'], [0, 128])
   if (top.exitCode !== 0) {
     if (NOT_A_CHECKOUT.test(top.stderr)) return { kind: 'none' }
@@ -108,9 +126,9 @@ export async function readLocalBranches(
   directory: string,
   signal: AbortSignal,
 ): Promise<GitBranchesValue> {
-  const position = await readBranchPosition(ctx, limits, session, directory, signal)
-  if (position.kind === 'none') return { kind: 'none' }
   const git = gitIn(ctx, limits, session, directory, signal)
+  const position = await readPosition(git)
+  if (position.kind === 'none') return { kind: 'none' }
   const refs = await git('for-each-ref', [
     'for-each-ref', '--sort=-committerdate', `--count=${limits.maxBranches}`, '--format=%(refname:lstrip=2)', 'refs/heads/',
   ], [0])
@@ -149,7 +167,7 @@ export async function switchBranch(
   if (switched.exitCode !== 0) {
     return { kind: 'failed', reason: refusalReason(switched.stderr), message: firstLine(switched.stderr) }
   }
-  const position = await readBranchPosition(ctx, limits, session, directory, signal)
+  const position = await readPosition(git)
   return {
     kind: 'switched',
     branch: position.kind === 'repository' ? position.branch : null,
@@ -167,20 +185,23 @@ function refusalReason(stderr: string): GitCheckoutFailure {
  * the Session's sandbox policy with the scrubbed environment and `limits`.
  */
 function gitIn(ctx: Context, limits: GitLimits, session: Session, directory: string, signal: AbortSignal): GitRun {
-  const policy = ctx.sandboxPolicy.resolve({ session })
-  return (name, args, allowedExitCodes) => runGit(ctx, limits, policy, directory, name, args, allowedExitCodes, signal)
+  const target: GitTarget = {
+    ctx,
+    limits,
+    policy: ctx.sandboxPolicy.resolve({ session }),
+    directory,
+    signal,
+  }
+  return (name, args, allowedExitCodes) => runGit(target, name, args, allowedExitCodes)
 }
 
 async function runGit(
-  ctx: Context,
-  limits: GitLimits,
-  policy: SandboxExecutionPolicy,
-  directory: string,
+  target: GitTarget,
   name: string,
   args: readonly string[],
   allowedExitCodes: readonly number[],
-  signal: AbortSignal,
 ): Promise<GitOutput> {
+  const { ctx, limits, policy, directory, signal } = target
   const timeout = AbortSignal.timeout(limits.timeoutMs)
   const lifetime = AbortSignal.any([signal, timeout])
   const program = await ctx.subprocess.resolveExecutable(limits.gitCommand, undefined, lifetime)
