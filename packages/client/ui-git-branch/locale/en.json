@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Git branch UI",
+    "description": "Show the current Git branch beside the session title and switch local branches."
+  }
+}

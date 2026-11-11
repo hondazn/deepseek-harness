@@ -1,0 +1,63 @@
+/* Session-header Git branch chip: read-only context plus the branch switcher. */
+
+.root {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 200px;
+  height: 22px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--dsw-radius-xs);
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 22px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chip:hover,
+.chipOpen {
+  background: var(--dsw-alias-interactive-bg-active);
+  color: var(--dsw-alias-label-primary);
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.icon,
+.chevron {
+  flex: none;
+}
+
+.chevron {
+  color: var(--dsw-alias-label-tertiary);
+  transition: transform 120ms ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+@container (max-width: 620px) {
+  .name {
+    max-width: 104px;
+  }
+}
+
+@container (max-width: 460px) {
+  .root {
+    display: none;
+  }
+}

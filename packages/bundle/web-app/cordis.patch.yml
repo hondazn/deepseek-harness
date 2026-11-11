@@ -409,6 +409,11 @@
     - id: ui-jobs
       name: '@deepseek-ai/dsh-client-ui-jobs'
 
+    # Git branch chip beside the Session title, with the branch switcher in its
+    # menu. The package's Host half serves the generated git Remote both use.
+    - id: ui-git-branch
+      name: '@deepseek-ai/dsh-client-ui-git-branch'
+
     # Task management and Session reminder catalog over the Host Schedule
     # service mounted above.
     - id: ui-schedule

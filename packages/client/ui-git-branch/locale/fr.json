@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Interface des branches Git",
+    "description": "Affiche la branche Git actuelle à côté du titre de la session et permet de changer de branche locale."
+  }
+}

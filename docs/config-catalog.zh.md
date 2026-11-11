@@ -575,6 +575,31 @@ export interface Config {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-shortcuts -->
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-ui-git-branch -->
+<a id="deepseek-aidsh-client-ui-git-branch"></a>
+
+## `@deepseek-ai/dsh-client-ui-git-branch`
+
+- `inject`: `subprocess` · `sandbox` · `sandboxPolicy` · `workingDirectory`
+- `source`: [`packages/client/ui-git-branch/src/index.ts:32`](../packages/client/ui-git-branch/src/index.ts)
+
+```ts config-catalog
+/** Deployment limits for one Git command and one branch listing. */
+export interface Config {
+  /** Git executable name or absolute path (default `git`). */
+  readonly gitCommand?: string
+  /** Deadline in milliseconds for one command (default 10000). */
+  readonly timeoutMs?: number
+  /** Termination grace period in milliseconds for each process (default 2000). */
+  readonly graceMs?: number
+  /** Maximum captured bytes per output stream (default 65536). */
+  readonly maxOutputBytes?: number
+  /** Most local branch names one listing returns (default 200). */
+  readonly maxBranches?: number
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-git-branch -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-ui-plugin-manager -->
 <a id="deepseek-aidsh-client-ui-plugin-manager"></a>
 

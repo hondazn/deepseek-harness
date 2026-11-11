@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Git-Branch-Oberfläche",
+    "description": "Zeigt den aktuellen Git-Branch neben dem Sitzungstitel und wechselt lokale Branches."
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Interfaz de ramas de Git",
+    "description": "Muestra la rama de Git actual junto al título de la sesión y cambia entre ramas locales."
+  }
+}

@@ -96,6 +96,9 @@ export const VIEWER_ENDPOINT_CLASSES = {
   'job/follow': 'owner-only', // owner background jobs'
   'job/kill': 'owner-only', // owner background jobs
   'job/list': 'owner-only', // owner background jobs'
+  'git/branch': 'owner-only', // the owner's checkout state
+  'git/branches': 'owner-only', // the owner's checkout state
+  'git/checkout': 'owner-only', // switching the owner's checkout
   'fileReferences/list': 'owner-only', // owner file references'
   'session/create': 'owner-only', // owner creates a Session
   'session/initializeDefaultModel': 'owner-only', // owner initializes a Session default model
