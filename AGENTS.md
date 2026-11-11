@@ -193,3 +193,10 @@ Docs accompany every code change: update affected README and JSDoc contracts tog
 - **Branches:** `master` mirrors `upstream/master` fast-forward only (`upstream` push is disabled); never commit to `master`. Commit fork changes on `custom` or topic branches off `custom` (`origin` is the default push remote; GitHub Actions are disabled).
 - **Upstream sync:** Run `git sync-custom` from a clean worktree to sync `master` and merge it into `custom` (`--no-push`, `--no-verify`, `--no-install`; `git sync-upstream` updates `master` only).
 - **Public fork and low-conflict edits:** `origin` is public; never commit private URLs, internal identifiers, or secrets (use `.env` and `CLAUDE.local.md`). Prefer additive workspace packages and Cordis `--patch` overlays over editing upstream files.
+
+## Skill workflow
+
+Read the matching personal skill under `~/.agents/skills/` before acting; its catalog description only routes and never replaces the procedure.
+
+- `code-complete` before a code change, `git-commit` before a commit, `create-pr` before a pull request.
+- Commit each confirmed unit as you go instead of batching the complete change set.
