@@ -187,3 +187,9 @@ Docs accompany every code change: update affected README and JSDoc contracts tog
 ## Vendoring policy
 
 `vendor/` packages are pinned source copies (manifest with upstream SHAs in [vendor/README.md](vendor/README.md)). Update via the sync procedure there; re-apply or retire the logged local modifications; rerun `pnpm run test && pnpm run build`.
+
+## Fork workflow
+
+- **Branches:** `master` mirrors `upstream/master` fast-forward only (`upstream` push is disabled); never commit to `master`. Commit fork changes on `custom` or topic branches off `custom` (`origin` is the default push remote; GitHub Actions are disabled).
+- **Upstream sync:** Run `git sync-custom` from a clean worktree to sync `master` and merge it into `custom` (`--no-push`, `--no-verify`, `--no-install`; `git sync-upstream` updates `master` only).
+- **Public fork and low-conflict edits:** `origin` is public; never commit private URLs, internal identifiers, or secrets (use `.env` and `CLAUDE.local.md`). Prefer additive workspace packages and Cordis `--patch` overlays over editing upstream files.
