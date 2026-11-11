@@ -127,10 +127,21 @@ describe('GitBranchAction', () => {
     expect(screen.getByRole('button', { name: 'Git 分支：main' })).toBeDefined()
   })
 
-  it('reports a failed listing in the menu', async () => {
+  it('keeps the loading row until the branch list resolves', async () => {
+    const listed: PromiseWithResolvers<GitBranchesValue> = Promise.withResolvers()
+    render(<GitBranchAction {...props({ loadBranches: () => listed.promise })} />)
+    fireEvent.click(await chip())
+    expect(await screen.findByText(zh['menu.loading'])).toBeDefined()
+    listed.resolve({ kind: 'repository', current: 'main', branches: ['main', 'feature'] })
+    expect(await screen.findByRole('menuitem', { name: 'feature' })).toBeDefined()
+    expect(screen.queryByText(zh['menu.loading'])).toBeNull()
+  })
+
+  it('reports a failed listing without claiming there are no branches', async () => {
     render(<GitBranchAction {...props({ loadBranches: async () => { throw new Error('unavailable') } })} />)
     fireEvent.click(await chip())
     expect(await screen.findByText(zh['error.branches'])).toBeDefined()
+    expect(screen.queryByText(zh['menu.empty'])).toBeNull()
   })
 
   it('shows an empty listing message when the repository has no branches', async () => {
