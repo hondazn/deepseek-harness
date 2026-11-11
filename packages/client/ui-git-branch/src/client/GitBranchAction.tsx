@@ -49,20 +49,26 @@ export type GitBranchActionProps =
 
 type Translate = GitBranchActionProps['t']
 
+/** One repository position the chip can show. */
+type RepositoryPosition = Extract<GitBranchValue, { kind: 'repository' }>
+
 /** What the chip shows: hidden outside a checkout, otherwise the read position. */
 type PositionState =
   | { readonly phase: 'loading' }
   | { readonly phase: 'hidden' }
-  | { readonly phase: 'ready'; readonly value: Extract<GitBranchValue, { kind: 'repository' }> }
+  | { readonly phase: 'ready'; readonly value: RepositoryPosition }
 
-interface MenuState {
-  readonly open: boolean
-  readonly loading: boolean
-  readonly branches: readonly string[]
-  readonly error: string | null
-}
+/**
+ * What the open menu shows. The contents are exhaustive, so loading, a failed
+ * listing, and an empty branch list can never be shown together.
+ */
+type MenuState =
+  | { readonly kind: 'closed' }
+  | { readonly kind: 'loading' }
+  | { readonly kind: 'branches'; readonly names: readonly string[]; readonly error: string | null }
+  | { readonly kind: 'unavailable'; readonly message: string }
 
-const CLOSED_MENU: MenuState = { open: false, loading: false, branches: [], error: null }
+const CLOSED_MENU: MenuState = { kind: 'closed' }
 
 /**
  * Localized explanation for a refused switch.
@@ -78,6 +84,57 @@ function failureText(result: Extract<GitCheckoutValue, { kind: 'failed' }>, bran
 }
 
 /**
+ * Chip text, tooltip, and accessible name for one position.
+ * @param value - the read repository position.
+ * @param t - the plugin's dictionary.
+ * @returns the visible branch or commit name, its tooltip, and its accessible name.
+ */
+function chipCopy(value: RepositoryPosition, t: Translate): { label: string; tip: string; aria: string } {
+  if (value.branch !== null) {
+    return {
+      label: value.branch,
+      tip: t('chip.tooltip', { branch: value.branch }),
+      aria: t('chip.aria', { branch: value.branch }),
+    }
+  }
+  const commit = value.commit ?? ''
+  return {
+    label: value.commit ?? t('chip.detached'),
+    tip: t('chip.detachedTooltip', { commit }),
+    aria: t('chip.detachedAria', { commit }),
+  }
+}
+
+/**
+ * Menu rows for one menu state. Only a successfully read empty list claims an
+ * empty repository; a failed listing shows its reason alone.
+ * @param menu - the open menu's content.
+ * @param switching - branch being checked out, or null while idle.
+ * @param t - the plugin's dictionary.
+ * @returns the title row followed by the state's own rows.
+ */
+function menuItems(menu: MenuState, switching: string | null, t: Translate): MenuEntry[] {
+  if (menu.kind === 'closed') return []
+  const items: MenuEntry[] = [{ type: 'label', id: 'title', text: t('menu.title') }]
+  if (menu.kind === 'loading') return [...items, { id: 'loading', label: t('menu.loading'), disabled: true }]
+  if (menu.kind === 'unavailable') return [...items, { id: 'error', label: menu.message, disabled: true, danger: true }]
+  if (menu.error !== null) items.push({ id: 'error', label: menu.error, disabled: true, danger: true })
+  if (menu.names.length === 0) {
+    items.push({ id: 'empty', label: t('menu.empty'), disabled: true })
+    return items
+  }
+  for (const name of menu.names) {
+    items.push({
+      id: name,
+      label: name,
+      disabled: switching !== null,
+      ...switching === null ? {} : { disabledReason: t('menu.busy') },
+    })
+  }
+  return items
+}
+
+/**
  * Render the branch the Session's working directory has checked out beside its
  * title, and switch it from the chip's menu. Nothing renders outside a Git
  * checkout or while the first read is in flight.
@@ -90,7 +147,7 @@ export function GitBranchAction({
   const cwd = useSessions(state => state.byId[sessionId]?.cwd)
   const [position, setPosition] = useState<PositionState>({ phase: 'loading' })
   const [menu, setMenu] = useState<MenuState>(CLOSED_MENU)
-  const [busy, setBusy] = useState<string | null>(null)
+  const [switching, setSwitching] = useState<string | null>(null)
   const listLifetime = useRef<AbortController | null>(null)
   const switchLifetime = useRef<AbortController | null>(null)
 
@@ -123,25 +180,25 @@ export function GitBranchAction({
   }, [])
 
   const toggleMenu = (): void => {
-    if (menu.open) {
+    if (menu.kind !== 'closed') {
       closeMenu()
       return
     }
     listLifetime.current?.abort()
     const lifetime = new AbortController()
     listLifetime.current = lifetime
-    setMenu({ open: true, loading: true, branches: [], error: null })
+    setMenu({ kind: 'loading' })
     void loadBranches(sessionId, lifetime.signal)
       .then((value) => {
         if (lifetime.signal.aborted) return
-        setMenu(current => current.open
-          ? { open: true, loading: false, branches: value.kind === 'repository' ? value.branches : [], error: null }
+        setMenu(current => current.kind === 'loading'
+          ? { kind: 'branches', names: value.kind === 'repository' ? value.branches : [], error: null }
           : current)
       })
       .catch(() => {
         if (lifetime.signal.aborted) return
-        setMenu(current => current.open
-          ? { open: true, loading: false, branches: [], error: t('error.branches') }
+        setMenu(current => current.kind === 'loading'
+          ? { kind: 'unavailable', message: t('error.branches') }
           : current)
       })
   }
@@ -154,11 +211,11 @@ export function GitBranchAction({
     switchLifetime.current?.abort()
     const lifetime = new AbortController()
     switchLifetime.current = lifetime
-    setBusy(branch)
+    setSwitching(branch)
     void checkout(sessionId, branch, lifetime.signal)
       .then((result) => {
         if (lifetime.signal.aborted) return
-        setBusy(null)
+        setSwitching(null)
         if (result.kind === 'switched') {
           setPosition(current => current.phase === 'ready'
             ? { phase: 'ready', value: { ...current.value, branch: result.branch, commit: result.commit } }
@@ -166,64 +223,48 @@ export function GitBranchAction({
           closeMenu()
           return
         }
-        setMenu(current => current.open ? { ...current, loading: false, error: failureText(result, branch, t) } : current)
+        setMenu(current => current.kind === 'branches'
+          ? { ...current, error: failureText(result, branch, t) }
+          : current)
       })
       .catch(() => {
         if (lifetime.signal.aborted) return
-        setBusy(null)
-        setMenu(current => current.open ? { ...current, loading: false, error: t('error.failed', { message: '' }) } : current)
+        setSwitching(null)
+        setMenu(current => current.kind === 'branches'
+          ? { ...current, error: t('error.failed', { message: '' }) }
+          : current)
       })
   }
 
   const value = positionValue(position)
   if (value === null) return null
-  const branch = value.branch
-  const label = branch ?? value.commit ?? t('chip.detached')
-  const tip = branch === null
-    ? t('chip.detachedTooltip', { commit: value.commit ?? '' })
-    : t('chip.tooltip', { branch })
-  const aria = branch === null
-    ? t('chip.detachedAria', { commit: value.commit ?? '' })
-    : t('chip.aria', { branch })
-  const items: MenuEntry[] = [
-    { type: 'label', id: 'title', text: t('menu.title') },
-    ...menu.error === null ? [] : [{ id: 'error', label: menu.error, disabled: true, danger: true } as const],
-    ...menu.loading
-      ? [{ id: 'loading', label: t('menu.loading'), disabled: true } as const]
-      : menu.branches.length === 0
-        ? [{ id: 'empty', label: t('menu.empty'), disabled: true } as const]
-        : menu.branches.map(name => ({
-          id: name,
-          label: name,
-          disabled: busy !== null,
-          ...busy === null ? {} : { disabledReason: t('menu.busy') },
-        })),
-  ]
+  const copy = chipCopy(value, t)
+  const open = menu.kind !== 'closed'
   return (
     <span className={css.root} data-git-branch="">
       <Menu
-        open={menu.open}
-        items={items}
-        selectedId={branch ?? undefined}
+        open={open}
+        items={menuItems(menu, switching, t)}
+        selectedId={value.branch ?? undefined}
         onSelect={choose}
         onClose={closeMenu}
         side="bottom"
         align="start"
         portal
         anchor={(
-          <Tooltip label={tip} side="bottom" portal>
+          <Tooltip label={copy.tip} side="bottom" portal>
             <button
               type="button"
-              className={clsx(css.chip, menu.open && css.chipOpen)}
-              aria-label={aria}
+              className={clsx(css.chip, open && css.chipOpen)}
+              aria-label={copy.aria}
               aria-haspopup="menu"
-              aria-expanded={menu.open}
+              aria-expanded={open}
               onClick={toggleMenu}
               data-git-branch-chip=""
             >
               <IconBranchOutlineRegular size={14} className={css.icon} />
-              <span className={css.name}>{label}</span>
-              <IconChevronDownOutlineRegular size={12} className={clsx(css.chevron, menu.open && css.chevronOpen)} />
+              <span className={css.name}>{copy.label}</span>
+              <IconChevronDownOutlineRegular size={12} className={clsx(css.chevron, open && css.chevronOpen)} />
             </button>
           </Tooltip>
         )}
@@ -233,6 +274,6 @@ export function GitBranchAction({
 }
 
 /** The read repository position, or null while hidden, loading, or outside a checkout. */
-function positionValue(position: PositionState): Extract<GitBranchValue, { kind: 'repository' }> | null {
+function positionValue(position: PositionState): RepositoryPosition | null {
   return position.phase === 'ready' ? position.value : null
 }
