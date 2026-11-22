@@ -7,7 +7,7 @@ kind: "package-reference"
 
 [English](README.md) | 中文
 
-## 摘要
+## 概述
 
 `dsh-client-ui-git-branch` 在会话标题旁显示会话工作目录当前检出的分支，并可通过标签的菜单切换分支。该包包含两个面：浏览器面注册一个标题栏操作及其词典，Host 面提供生成的 `git` Remote 命名空间，用于读取分支位置、列出本地分支并在会话的沙箱策略下检出一个分支。
 
@@ -18,6 +18,7 @@ kind: "package-reference"
 - [进一步探索](#further-exploration)
 - [模型体验](#model-experience)
 - [已知限制与后续工作](#known-limitations-and-deferred-work)
+- [开发备注](#dev-note)
 
 -----
 
@@ -94,3 +95,13 @@ Host 面是一个 `TypertRemoteService`，绑定到 `ctx.gitController` 与生�
 - **没有后台刷新** — 在该控件之外切换的分支只会在下次打开菜单或会话变化时更新，因为本包不轮询仓库状态。
 - **不含 fetch 或远程分支** — 菜单只列出本地分支；拉取、创建和删除分支不在该控件范围内。
 - **未提交的修改会阻止切换** — Git 拒绝检出并给出提示；本包不会替用户暂存或丢弃工作。
+
+<a id="dev-note"></a>
+### 开发备注
+
+<details>
+<summary>维护者上下文——点击展开</summary>
+
+无。
+
+</details>

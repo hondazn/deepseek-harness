@@ -18,6 +18,7 @@ English | [中文](README.zh.md)
 - [Further Exploration](#further-exploration)
 - [Model Experience](#model-experience)
 - [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
 
 -----
 
@@ -94,3 +95,13 @@ These limits define current package constraints, not a task backlog.
 - **No background refresh** — a branch switched outside the chip updates at the next menu open or Session change, because the package polls no repository state.
 - **No fetch or remote branches** — the menu lists local branches only; pulling, creating, and deleting branches stay outside this control.
 - **Uncommitted changes block a switch** — Git refuses the checkout and the menu reports the refusal; the package never stashes or discards work on the user's behalf.
+
+<a id="dev-note"></a>
+### Dev Note
+
+<details>
+<summary>Working context for maintainers — click to expand</summary>
+
+None.
+
+</details>

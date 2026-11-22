@@ -10,10 +10,10 @@
   zh: 7965e6c6ccd78f37
 /deepseek-ai-dsh-client-ui-git-branch/summary:
   en: 6fb06b1e5b1ce19f
-  zh: 0ba76bf29b0a0bde
+  zh: 55a0cab3f1836256
 /deepseek-ai-dsh-client-ui-git-branch/table-of-contents:
-  en: b563e4ec4727d0de
-  zh: fa5efa2e4c23cc1f
+  en: d152484eb41ac6b4
+  zh: 87d6b45405bb805b
 /deepseek-ai-dsh-client-ui-git-branch/use-this-package:
   en: b7742e59a69a85ba
   zh: 2b79b367c2bd2ac0
@@ -33,5 +33,8 @@
   en: 47f982e326fe77fd
   zh: 3d1617c0ff9d3424
 /deepseek-ai-dsh-client-ui-git-branch/known-limitations-and-deferred-work:
-  en: 9adde7e3492a72a8
-  zh: a147d34f848a865f
+  en: 755b775612c8fd38
+  zh: 64f63662ba6bc92d
+/deepseek-ai-dsh-client-ui-git-branch/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 6df6019931844fb2
